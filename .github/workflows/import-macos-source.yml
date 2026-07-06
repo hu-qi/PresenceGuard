@@ -31,7 +31,12 @@ jobs:
           test -f bootstrap/macos-source/manifest.env
           source bootstrap/macos-source/manifest.env
           cat bootstrap/macos-source/parts/*.b64 > /tmp/presenceguard-macos-source.b64
-          base64 --decode /tmp/presenceguard-macos-source.b64 > /tmp/presenceguard-macos-source.tar.gz
+          python3 - <<'PY'
+          import base64
+          from pathlib import Path
+          source = Path('/tmp/presenceguard-macos-source.b64').read_bytes()
+          Path('/tmp/presenceguard-macos-source.tar.gz').write_bytes(base64.b64decode(source, validate=True))
+          PY
           echo "${SHA256}  /tmp/presenceguard-macos-source.tar.gz" | shasum -a 256 --check
           test "$(stat -f%z /tmp/presenceguard-macos-source.tar.gz)" = "${BYTES}"
 
@@ -41,7 +46,7 @@ jobs:
           set -euo pipefail
           tar -tzf /tmp/presenceguard-macos-source.tar.gz | sed 's#^./##' | while IFS= read -r path; do
             case "$path" in
-              crates/presenceguard-macos|crates/presenceguard-macos/*|scripts|scripts/*|rust-toolchain.toml) ;;
+              crates|crates/|crates/presenceguard-macos|crates/presenceguard-macos/*|scripts|scripts/*|rust-toolchain.toml) ;;
               "") ;;
               *) echo "Unexpected archive path: $path" >&2; exit 1 ;;
             esac
