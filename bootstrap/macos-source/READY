@@ -1,0 +1,2 @@
+This marker intentionally triggers the verified GitHub Actions source import workflow.
+The workflow validates SHA-256 and archive paths, imports only the allowed source paths, builds on macOS, then removes this staging directory in its commit.
