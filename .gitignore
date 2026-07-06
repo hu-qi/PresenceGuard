@@ -1,0 +1,12 @@
+# Rust build outputs
+target/
+dist/
+
+# macOS
+.DS_Store
+
+# Local app state and logs
+*.log
+
+# Xcode
+DerivedData/
