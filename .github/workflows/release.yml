@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to release, for example v0.1.0"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Verify and publish source release
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - name: Check out release revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Validate tag format
+        shell: bash
+        run: |
+          [[ "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]
+
+      - name: Verify formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run Clippy
+        run: cargo clippy -p presence-core --all-targets -- -D warnings
+
+      - name: Run tests
+        run: cargo test -p presence-core --all-targets
+
+      - name: Package Rust core
+        shell: bash
+        run: |
+          cargo package -p presence-core --allow-dirty
+          mkdir -p release-assets
+          cp target/package/presence-core-*.crate release-assets/
+          sha256sum release-assets/* > release-assets/SHA256SUMS.txt
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release view "${RELEASE_TAG}" >/dev/null 2>&1 || \
+            gh release create "${RELEASE_TAG}" \
+              --title "Presence Guard ${RELEASE_TAG}" \
+              --generate-notes
+          gh release upload "${RELEASE_TAG}" release-assets/* --clobber
